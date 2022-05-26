@@ -24,7 +24,8 @@ app.get('/recommendations', authenticateJWT, async (req, res) => {
   const userId = '9aaec1fc-ea13-4783-81f8-a998c1e0d648'
   const ratedMovies = await getRatedMovies(userId)
 
-  console.log(ratedMovies)
+  // console.log(ratedMovies)
+
   let directors = []
   let genre = []
   for (let i = 0; i < ratedMovies.length; i++) {
@@ -35,6 +36,18 @@ app.get('/recommendations', authenticateJWT, async (req, res) => {
   }
   const favDirector = _.head(_(directors).countBy().entries().maxBy(_.last))
   const favGenre = _.head(_(genre).countBy().entries().maxBy(_.last))
+  // console.log('directors==>', favDirector)
+  // console.log('genre==>', favGenre)
+
+  const favDirectorMovies = await getRecommendationByDirector(favDirector)
+  const favGenreMovies = await getRecommendationByGenre(favGenre)
+
+  const filteredFavDirectorMovies = favDirectorMovies.filter(
+    (movie1) => !ratedMovies.some((movie2) => movie1.id === movie2.id)
+  )
+  const filteredFavGenreMovies = favGenreMovies.filter(
+    (movie1) => !ratedMovies.some((movie2) => movie1.id === movie2.id)
+  )
 })
 
 const server = app.listen(LISTENING_PORT, function () {
