@@ -9,6 +9,8 @@ const {
   getRecommendationByGenre,
   saveRecommendations,
   getSavedRecommendations,
+  getPopularValue,
+  getFilterOutMovies,
 } = require('./helperFunctions')
 
 const authenticateJWT = require('./middleware/authenticateJWT')
@@ -21,33 +23,54 @@ app.use(express.json())
 app.use(bodyParser.json())
 
 app.get('/recommendations', authenticateJWT, async (req, res) => {
-  const userId = '9aaec1fc-ea13-4783-81f8-a998c1e0d648'
-  const ratedMovies = await getRatedMovies(userId)
+  const { userId } = req
+  let recommendation = await getSavedRecommendations(userId)
 
-  // console.log(ratedMovies)
+  if (!recommendation) {
+    const ratedMovies = await getRatedMovies(userId)
 
-  let directors = []
-  let genre = []
-  for (let i = 0; i < ratedMovies.length; i++) {
-    if (ratedMovies[i].userRating >= 7) {
-      directors.push(ratedMovies[i].director)
-      genre.push(...ratedMovies[i].genres)
+    let directors = []
+    let genres = []
+
+    for (let i = 0; i < ratedMovies.length; i++) {
+      if (ratedMovies[i].userRating >= 7) {
+        directors.push(ratedMovies[i].director)
+        genres.push(...ratedMovies[i].genres)
+      }
     }
+    const favDirector = await getPopularValue(directors) //get favDirector from rateMovies
+    const favGenre = await getPopularValue(genres) //get favGenre from rateMovies
+
+    let favDirectorMovies = [] // All movies by favDirector
+    let favGenreMovies = [] // All movies by favGenre
+    let filteredFavDirectorMovies = [] // Filter out movies in byDirector
+    let filteredFavGenreMovies = [] // Filter out movies in  byGenre
+
+    if (favDirector) {
+      favDirectorMovies = await getRecommendationByDirector(favDirector)
+      filteredFavDirectorMovies = await getFilterOutMovies(
+        favDirectorMovies,
+        ratedMovies
+      )
+    }
+    if (favGenre) {
+      favGenreMovies = await getRecommendationByGenre(favGenre)
+      filteredFavGenreMovies = await getFilterOutMovies(
+        favGenreMovies,
+        ratedMovies
+      )
+    }
+
+    recommendation = {
+      favDirector,
+      favGenre,
+      byDirector: filteredFavDirectorMovies,
+      byGenre: filteredFavGenreMovies,
+    }
+    await saveRecommendations(userId, recommendation)
   }
-  const favDirector = _.head(_(directors).countBy().entries().maxBy(_.last))
-  const favGenre = _.head(_(genre).countBy().entries().maxBy(_.last))
-  // console.log('directors==>', favDirector)
-  // console.log('genre==>', favGenre)
 
-  const favDirectorMovies = await getRecommendationByDirector(favDirector)
-  const favGenreMovies = await getRecommendationByGenre(favGenre)
-
-  const filteredFavDirectorMovies = favDirectorMovies.filter(
-    (movie1) => !ratedMovies.some((movie2) => movie1.id === movie2.id)
-  )
-  const filteredFavGenreMovies = favGenreMovies.filter(
-    (movie1) => !ratedMovies.some((movie2) => movie1.id === movie2.id)
-  )
+  return res.send({ recommendation })
 })
 
 const server = app.listen(LISTENING_PORT, function () {
