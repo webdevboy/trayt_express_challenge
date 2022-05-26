@@ -9,10 +9,8 @@ const {
   getRecommendationByGenre,
   saveRecommendations,
   getSavedRecommendations,
-  getPopularValue,
-  getFilterOutMovies,
 } = require('./helperFunctions')
-
+const { getPopularValue, getFilterOutMovies } = require('./utilies')
 const authenticateJWT = require('./middleware/authenticateJWT')
 
 const LISTENING_PORT = 9000
